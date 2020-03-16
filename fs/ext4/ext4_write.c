@@ -873,13 +873,24 @@ int ext4fs_write(const char *fname, const char *buffer,
 	if (!g_parent_inode)
 		goto fail;
 
-	if (ext4fs_init() != 0) {
-		printf("error in File System init\n");
-		return -1;
+	{
+		struct ext2_sblock *sb = zalloc(SUPERBLOCK_SIZE);
+		if (!sb)
+			return -ENOMEM;
+		if (!ext4_read_superblock((char *)sb)) {
+			free(sb);
+			goto fail;
+		}
+		if (le32_to_cpu(sb->feature_ro_compat) & EXT4_FEATURE_RO_COMPAT_METADATA_CSUM) {
+			printf("Unsupported feature metadata_csum found, not writing.\n");
+			free(sb);
+			return -1;
+		}
+		free(sb);
 	}
 
-	if (le32_to_cpu(fs->sb->feature_ro_compat) & EXT4_FEATURE_RO_COMPAT_METADATA_CSUM) {
-		printf("Unsupported feature metadata_csum found, not writing.\n");
+	if (ext4fs_init() != 0) {
+		printf("error in File System init\n");
 		return -1;
 	}
 
